@@ -77,12 +77,26 @@ if st.button("ランダム取得"):
                         img = Image.open(img_path)
                         # 画像をクリックでPixivページに遷移するMarkdownリンクとして表示
                         artwork_url = f"https://www.pixiv.net/artworks/{illust.id}"
+                        user_url = f"https://www.pixiv.net/users/{illust.user.id}"
                         import base64
                         from io import BytesIO as _BytesIO
                         buffered = _BytesIO()
                         img.save(buffered, format="PNG")
                         img_b64 = base64.b64encode(buffered.getvalue()).decode()
-                        md = f'<a href="{artwork_url}" target="_blank"><img src="data:image/png;base64,{img_b64}" style="width:100%;height:auto;"/></a>'
+                        # 画像下にタイトル・作者名を配置
+                        md = f'''
+<div style="text-align:center; padding: 10px 0 18px 0;">
+  <a href="{artwork_url}" target="_blank" style="display:inline-block;">
+    <img src="data:image/png;base64,{img_b64}" style="width:98%;height:auto;border-radius:8px;box-shadow:0 2px 8px #0001;">
+  </a>
+  <div style="margin-top:7px;font-weight:600;font-size:1.03em;line-height:1.2;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+    {illust.title}
+  </div>
+  <div style="font-size:0.93em;color:var(--secondary-text-color,#6a7fa0);margin-top:2px;">
+    by <a href="{user_url}" target="_blank" style="color:#2980b9;text-decoration:none;font-weight:500;">{illust.user.name}</a>
+  </div>
+</div>
+'''
                         col.markdown(md, unsafe_allow_html=True)
                 except Exception as e:
                     col.write("画像取得失敗")
