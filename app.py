@@ -11,7 +11,7 @@ from io import BytesIO
 load_dotenv()
 REFRESH_TOKEN = os.getenv("PIXIV_REFRESH_TOKEN")
 
-st.title("Pixiv いいねイラスト ランダム表示")
+st.title("Pixiv Faborite Gallery")
 
 if not REFRESH_TOKEN:
     st.error("PIXIV_REFRESH_TOKENが設定されていません。.envファイルを確認してください。")
