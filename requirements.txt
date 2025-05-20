@@ -1,0 +1,5 @@
+streamlit
+pixivpy3
+python-dotenv
+requests
+Pillow
