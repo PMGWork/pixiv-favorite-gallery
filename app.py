@@ -18,7 +18,13 @@ if not REFRESH_TOKEN:
     st.stop()
 
 # 取得枚数入力
-num_images = st.number_input("表示するイラスト枚数", min_value=1, max_value=30, value=12, step=1)
+num_images = st.slider("表示するイラスト枚数", min_value=10, max_value=30, value=20, step=1)
+
+# タグ入力
+tags_input = st.text_input("絞り込みたいタグ (カンマ区切り)", "")
+
+# 検索モード選択
+search_mode = st.radio("検索モード", ("OR検索", "AND検索"), index=0)
 
 if st.button("ランダム取得"):
     with st.spinner("Pixivから取得中..."):
@@ -49,8 +55,28 @@ if st.button("ランダム取得"):
             st.warning("いいねしたイラストが見つかりませんでした。")
             st.stop()
 
+        # タグでフィルタリング
+        search_tags = [tag.strip().lower() for tag in tags_input.split(',') if tag.strip()]
+
+        if search_tags:
+            filtered_illusts = []
+            for illust in illusts:
+                illust_tags = [tag.name.lower() for tag in illust.tags]
+                if search_mode == "OR検索":
+                    if any(s_tag in illust_tags for s_tag in search_tags):
+                        filtered_illusts.append(illust)
+                else: # AND検索
+                    if all(s_tag in illust_tags for s_tag in search_tags):
+                        filtered_illusts.append(illust)
+
+            if not filtered_illusts:
+                st.warning(f"指定されたタグ ({tags_input}) に一致するイラストが見つかりませんでした。")
+                st.stop()
+        else:
+            filtered_illusts = illusts
+
         # ランダムに選択
-        selected = random.sample(illusts, min(num_images, len(illusts)))
+        selected = random.sample(filtered_illusts, min(num_images, len(filtered_illusts)))
 
         # 画像表示（4列×n行で大きく表示）
         import math
