@@ -35,15 +35,19 @@ if st.button("ランダム取得"):
             st.error(f"Pixiv認証エラー: {e}")
             st.stop()
 
-        # いいねしたイラストを全件取得（最大1000件まで）
+        # いいねしたイラストを全件取得
         illusts = []
         next_qs = {}
-        for _ in range(10):  # 1回で100件、最大1000件
+        while True: # next_urlがある限り取得を続ける
             # next_qsにuser_idやrestrictが含まれていれば除外
             filtered_qs = {k: v for k, v in next_qs.items() if k not in ("user_id", "restrict")}
             res = api.user_bookmarks_illust(user_id=api.user_id, restrict="public", **filtered_qs)
-            illusts.extend(res.illusts)
-            if res.next_url:
+
+            # res.illustsがNoneでないことを確認してからextendを呼び出す
+            if res and res.illusts is not None:
+                illusts.extend(res.illusts)
+
+            if res and res.next_url:
                 # next_urlからクエリパラメータを抽出
                 from urllib.parse import urlparse, parse_qs
                 qs = parse_qs(urlparse(res.next_url).query)
