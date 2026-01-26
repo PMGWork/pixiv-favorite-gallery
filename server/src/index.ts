@@ -1,9 +1,11 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { cors } from "hono/cors";
 
 type Env = {
   Bindings: {
     PIXIV_REFRESH_TOKEN: string;
+    AUTH_PASSWORD: string;
   };
 };
 
@@ -14,6 +16,8 @@ const CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj";
 const HASH_SECRET =
   "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c";
 const USER_AGENT = "PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)";
+const AUTH_COOKIE = "pixiv_gallery_auth";
+const AUTH_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 const app = new Hono<Env>();
 
@@ -21,6 +25,12 @@ app.use("*", async (c, next) => {
   if (c.req.path.startsWith("/api")) {
     return next();
   }
+
+  const isAuthed = await isAuthenticated(c);
+  if (!isAuthed) {
+    return renderLoginPage();
+  }
+
   const assets = c.env.ASSETS;
   if (!assets) {
     return c.text("Assets binding not configured", 500);
@@ -38,12 +48,69 @@ app.use(
   "/api/*",
   cors({
     origin: "*",
-    allowMethods: ["GET"],
+    allowMethods: ["GET", "POST"],
     allowHeaders: ["Content-Type"],
   })
 );
 
+app.use("/api/*", async (c, next) => {
+  const path = c.req.path;
+  if (path === "/api/health" || path === "/api/login" || path === "/api/me") {
+    return next();
+  }
+  const isAuthed = await isAuthenticated(c);
+  if (!isAuthed) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  return next();
+});
+
 app.get("/api/health", (c) => c.json({ ok: true }));
+
+app.post("/api/login", async (c) => {
+  const configuredPassword = c.env.AUTH_PASSWORD;
+  if (!configuredPassword) {
+    return c.json({ error: "AUTH_PASSWORD is not configured" }, 500);
+  }
+
+  let password = "";
+  try {
+    const body = await c.req.json();
+    password = typeof body?.password === "string" ? body.password : "";
+  } catch {
+    return c.json({ error: "invalid json" }, 400);
+  }
+
+  if (!password) {
+    return c.json({ error: "password is required" }, 400);
+  }
+
+  if (password !== configuredPassword) {
+    return c.json({ error: "invalid password" }, 401);
+  }
+
+  const hash = await hashPassword(configuredPassword);
+  const headers = new Headers();
+  headers.append(
+    "Set-Cookie",
+    buildAuthCookie(hash, c.req.url)
+  );
+  return new Response(null, { status: 204, headers });
+});
+
+app.post("/api/logout", (c) => {
+  const headers = new Headers();
+  headers.append(
+    "Set-Cookie",
+    `${AUTH_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+  );
+  return new Response(null, { status: 204, headers });
+});
+
+app.get("/api/me", async (c) => {
+  const isAuthed = await isAuthenticated(c);
+  return c.json({ authenticated: isAuthed });
+});
 
 app.get("/api/favorites", async (c) => {
   const cache = caches.default;
@@ -311,6 +378,158 @@ function clampNumber(value: number, min: number, max: number) {
 
 function md5(message: string) {
   return md5Hex(md5Bytes(message));
+}
+
+async function hashPassword(password: string) {
+  const data = new TextEncoder().encode(password);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function parseCookies(cookieHeader: string | null) {
+  if (!cookieHeader) {
+    return new Map<string, string>();
+  }
+  return cookieHeader.split(";").reduce((map, part) => {
+    const [rawName, ...rest] = part.trim().split("=");
+    if (!rawName) {
+      return map;
+    }
+    map.set(rawName, rest.join("="));
+    return map;
+  }, new Map<string, string>());
+}
+
+async function isAuthenticated(c: Context<Env>) {
+  const configuredPassword = c.env.AUTH_PASSWORD;
+  if (!configuredPassword) {
+    return false;
+  }
+  const cookies = parseCookies(c.req.header("Cookie"));
+  const token = cookies.get(AUTH_COOKIE);
+  if (!token) {
+    return false;
+  }
+  const expected = await hashPassword(configuredPassword);
+  return token === expected;
+}
+
+function buildAuthCookie(token: string, url: string) {
+  const isSecure = new URL(url).protocol === "https:";
+  const secure = isSecure ? "; Secure" : "";
+  return `${AUTH_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${AUTH_TTL_SECONDS}${secure}`;
+}
+
+function renderLoginPage() {
+  const html = `<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixiv Favorite Gallery</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(140deg, #f5f5f5, #e8eef7);
+      }
+      .card {
+        width: min(360px, 90vw);
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 28px;
+        box-shadow: 0 18px 60px rgba(15, 23, 42, 0.12);
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 6px;
+      }
+      p {
+        margin: 0 0 18px;
+        color: #475569;
+        font-size: 14px;
+      }
+      input {
+        width: 100%;
+        border: 1px solid #cbd5f5;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      button {
+        width: 100%;
+        margin-top: 14px;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-weight: 600;
+        font-size: 14px;
+        color: #ffffff;
+        background: #3b82f6;
+        cursor: pointer;
+      }
+      .error {
+        margin-top: 12px;
+        font-size: 12px;
+        color: #dc2626;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Pixiv Favorite Gallery</h1>
+      <p>閲覧にはパスワードが必要です。</p>
+      <form id="login-form">
+        <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+        <button type="submit">ログイン</button>
+      </form>
+      <div id="error" class="error" aria-live="polite"></div>
+    </div>
+    <script>
+      const form = document.getElementById("login-form");
+      const passwordInput = document.getElementById("password");
+      const errorEl = document.getElementById("error");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        errorEl.textContent = "";
+        const password = passwordInput.value.trim();
+        if (!password) {
+          errorEl.textContent = "パスワードを入力してください。";
+          return;
+        }
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
+        if (!res.ok) {
+          errorEl.textContent = "パスワードが正しくありません。";
+          return;
+        }
+        window.location.reload();
+      });
+    </script>
+  </body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
 function md5Bytes(message: string) {
