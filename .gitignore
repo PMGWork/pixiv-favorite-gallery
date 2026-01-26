@@ -7,7 +7,6 @@
 # dotenv
 .env
 
-
 # Node / TypeScript
 node_modules/
 **/node_modules/
