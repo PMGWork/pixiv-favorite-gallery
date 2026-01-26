@@ -17,6 +17,23 @@ const USER_AGENT = "PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)";
 
 const app = new Hono<Env>();
 
+app.use("*", async (c, next) => {
+  if (c.req.path.startsWith("/api")) {
+    return next();
+  }
+  const assets = c.env.ASSETS;
+  if (!assets) {
+    return c.text("Assets binding not configured", 500);
+  }
+  const res = await assets.fetch(c.req.raw);
+  if (res.status !== 404) {
+    return res;
+  }
+  const url = new URL(c.req.url);
+  url.pathname = "/";
+  return assets.fetch(new Request(url.toString(), c.req.raw));
+});
+
 app.use(
   "/api/*",
   cors({
