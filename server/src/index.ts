@@ -6,6 +6,8 @@ type Env = {
   Bindings: {
     PIXIV_REFRESH_TOKEN: string;
     AUTH_PASSWORD: string;
+    PIXIV_APP_VERSION?: string;
+    PIXIV_USER_AGENT?: string;
   };
 };
 
@@ -15,7 +17,8 @@ const CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT";
 const CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj";
 const HASH_SECRET =
   "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c";
-const USER_AGENT = "PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)";
+const DEFAULT_APP_VERSION = "6.115.0";
+const DEFAULT_USER_AGENT = `PixivAndroidApp/${DEFAULT_APP_VERSION} (Android 13; Pixel 7)`;
 const AUTH_COOKIE = "pixiv_gallery_auth";
 const AUTH_TTL_SECONDS = 60 * 60 * 24 * 30;
 
@@ -134,10 +137,11 @@ app.get("/api/favorites", async (c) => {
     .map((tag) => tag.trim().toLowerCase())
     .filter(Boolean);
   const mode = c.req.query("mode") === "and" ? "and" : "or";
+  const pixivConfig = resolvePixivConfig(c.env);
 
   try {
-    const auth = await refreshAccessToken(refreshToken);
-    const allIllusts = await fetchAllBookmarks(auth);
+    const auth = await refreshAccessToken(refreshToken, pixivConfig);
+    const allIllusts = await fetchAllBookmarks(auth, pixivConfig);
 
     if (!allIllusts.length) {
       return c.json({ data: [] });
@@ -232,6 +236,11 @@ type PixivAuth = {
   };
 };
 
+type PixivConfig = {
+  appVersion: string;
+  userAgent: string;
+};
+
 type PixivIllust = {
   id: number;
   title: string;
@@ -263,7 +272,10 @@ type PixivBookmarkResponse = {
   next_url?: string | null;
 };
 
-async function refreshAccessToken(refreshToken: string): Promise<PixivAuth> {
+async function refreshAccessToken(
+  refreshToken: string,
+  config: PixivConfig
+): Promise<PixivAuth> {
   const payload = new URLSearchParams({
     client_id: CLIENT_ID,
     client_secret: CLIENT_SECRET,
@@ -277,7 +289,7 @@ async function refreshAccessToken(refreshToken: string): Promise<PixivAuth> {
     method: "POST",
     headers: buildHeaders({
       "Content-Type": "application/x-www-form-urlencoded",
-    }),
+    }, config),
     body: payload,
   });
 
@@ -289,12 +301,19 @@ async function refreshAccessToken(refreshToken: string): Promise<PixivAuth> {
   return data.response as PixivAuth;
 }
 
-async function fetchAllBookmarks(auth: PixivAuth): Promise<PixivIllust[]> {
+async function fetchAllBookmarks(
+  auth: PixivAuth,
+  config: PixivConfig
+): Promise<PixivIllust[]> {
   const results: PixivIllust[] = [];
   let nextUrl: string | null = `${BASE_URL}/v1/user/bookmarks/illust?user_id=${auth.user.id}&restrict=public`;
 
   while (nextUrl) {
-    const data = await pixivRequest<PixivBookmarkResponse>(nextUrl, auth);
+    const data = await pixivRequest<PixivBookmarkResponse>(
+      nextUrl,
+      auth,
+      config
+    );
     if (data.illusts?.length) {
       results.push(...data.illusts);
     }
@@ -316,11 +335,15 @@ function normalizeNextUrl(nextUrl: string | null | undefined, userId: string) {
   return filtered ? `${base}&${filtered}` : base;
 }
 
-async function pixivRequest<T>(url: string, auth: PixivAuth): Promise<T> {
+async function pixivRequest<T>(
+  url: string,
+  auth: PixivAuth,
+  config: PixivConfig
+): Promise<T> {
   const response = await fetch(url, {
     headers: buildHeaders({
       Authorization: `Bearer ${auth.access_token}`,
-    }),
+    }, config),
   });
 
   if (!response.ok) {
@@ -330,18 +353,24 @@ async function pixivRequest<T>(url: string, auth: PixivAuth): Promise<T> {
   return (await response.json()) as T;
 }
 
-function buildHeaders(extra: Record<string, string>) {
-  const time = new Date().toISOString();
+function buildHeaders(extra: Record<string, string>, config: PixivConfig) {
+  const time = new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00");
   return {
-    "User-Agent": USER_AGENT,
+    "User-Agent": config.userAgent,
     "Accept-Language": "en-us",
     "App-OS": "android",
-    "App-OS-Version": "9.0",
-    "App-Version": "5.0.234",
+    "App-OS-Version": "13.0",
+    "App-Version": config.appVersion,
     "X-Client-Time": time,
     "X-Client-Hash": md5(`${time}${HASH_SECRET}`),
     ...extra,
   };
+}
+
+function resolvePixivConfig(env: Env["Bindings"]): PixivConfig {
+  const appVersion = env.PIXIV_APP_VERSION || DEFAULT_APP_VERSION;
+  const userAgent = env.PIXIV_USER_AGENT || DEFAULT_USER_AGENT;
+  return { appVersion, userAgent };
 }
 
 function filterByTags(illusts: PixivIllust[], tags: string[], mode: "or" | "and") {
