@@ -1,15 +1,7 @@
+import "dotenv/config";
 import { Hono } from "hono";
-import type { Context } from "hono";
 import { cors } from "hono/cors";
-
-type Env = {
-  Bindings: {
-    PIXIV_REFRESH_TOKEN: string;
-    AUTH_PASSWORD: string;
-    PIXIV_APP_VERSION?: string;
-    PIXIV_USER_AGENT?: string;
-  };
-};
+import { serve } from "@hono/node-server";
 
 const BASE_URL = "https://app-api.pixiv.net";
 const AUTH_URL = "https://oauth.secure.pixiv.net/auth/token";
@@ -17,131 +9,31 @@ const CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT";
 const CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj";
 const HASH_SECRET =
   "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c";
-const DEFAULT_APP_VERSION = "6.115.0";
-const DEFAULT_USER_AGENT = `PixivAndroidApp/${DEFAULT_APP_VERSION} (Android 13; Pixel 7)`;
-const AUTH_COOKIE = "pixiv_gallery_auth";
-const AUTH_TTL_SECONDS = 60 * 60 * 24 * 30;
+const USER_AGENT = "PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)";
 
-const app = new Hono<Env>();
+const PIXIV_REFRESH_TOKEN = process.env.PIXIV_REFRESH_TOKEN || "";
+const PORT = parseInt(process.env.PORT || "3010", 10);
 
-app.use("*", async (c, next) => {
-  if (c.req.path.startsWith("/api")) {
-    return next();
-  }
+if (!PIXIV_REFRESH_TOKEN) {
+  console.error("PIXIV_REFRESH_TOKEN is required");
+  process.exit(1);
+}
 
-  const isAuthed = await isAuthenticated(c);
-  if (!isAuthed) {
-    return renderLoginPage();
-  }
+const app = new Hono();
 
-  const assets = c.env.ASSETS;
-  if (!assets) {
-    return c.text("Assets binding not configured", 500);
-  }
-  const res = await assets.fetch(c.req.raw);
-  if (res.status !== 404) {
-    return res;
-  }
-  const url = new URL(c.req.url);
-  url.pathname = "/";
-  return assets.fetch(new Request(url.toString(), c.req.raw));
-});
+app.use("*", cors({ origin: "*" }));
 
-app.use(
-  "/api/*",
-  cors({
-    origin: "*",
-    allowMethods: ["GET", "POST"],
-    allowHeaders: ["Content-Type"],
-  })
-);
-
-app.use("/api/*", async (c, next) => {
-  const path = c.req.path;
-  if (path === "/api/health" || path === "/api/login" || path === "/api/me") {
-    return next();
-  }
-  const isAuthed = await isAuthenticated(c);
-  if (!isAuthed) {
-    return c.json({ error: "unauthorized" }, 401);
-  }
-  return next();
-});
-
-app.get("/api/health", (c) => c.json({ ok: true }));
-
-app.post("/api/login", async (c) => {
-  const configuredPassword = c.env.AUTH_PASSWORD;
-  if (!configuredPassword) {
-    return c.json({ error: "AUTH_PASSWORD is not configured" }, 500);
-  }
-
-  let password = "";
-  try {
-    const body = await c.req.json();
-    password = typeof body?.password === "string" ? body.password : "";
-  } catch {
-    return c.json({ error: "invalid json" }, 400);
-  }
-
-  if (!password) {
-    return c.json({ error: "password is required" }, 400);
-  }
-
-  if (password !== configuredPassword) {
-    return c.json({ error: "invalid password" }, 401);
-  }
-
-  const hash = await hashPassword(configuredPassword);
-  const headers = new Headers();
-  headers.append(
-    "Set-Cookie",
-    buildAuthCookie(hash, c.req.url)
-  );
-  return new Response(null, { status: 204, headers });
-});
-
-app.post("/api/logout", (c) => {
-  const headers = new Headers();
-  headers.append(
-    "Set-Cookie",
-    `${AUTH_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
-  );
-  return new Response(null, { status: 204, headers });
-});
-
-app.get("/api/me", async (c) => {
-  const isAuthed = await isAuthenticated(c);
-  return c.json({ authenticated: isAuthed });
-});
-
-app.get("/api/favorites", async (c) => {
-  const cache = caches.default;
-  const cacheKey = new Request(c.req.url, { method: "GET" });
-  const cached = await cache.match(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  const refreshToken = c.env.PIXIV_REFRESH_TOKEN;
-  if (!refreshToken) {
-    return c.json(
-      { error: "PIXIV_REFRESH_TOKEN is not configured" },
-      500
-    );
-  }
-
+app.get("/favorites", async (c) => {
   const count = clampNumber(parseInt(c.req.query("count") || "20", 10), 10, 30);
   const tags = (c.req.query("tags") || "")
     .split(",")
     .map((tag) => tag.trim().toLowerCase())
     .filter(Boolean);
   const mode = c.req.query("mode") === "and" ? "and" : "or";
-  const pixivConfig = resolvePixivConfig(c.env);
 
   try {
-    const auth = await refreshAccessToken(refreshToken, pixivConfig);
-    const allIllusts = await fetchAllBookmarks(auth, pixivConfig);
+    const auth = await refreshAccessToken(PIXIV_REFRESH_TOKEN);
+    const allIllusts = await fetchAllBookmarks(auth);
 
     if (!allIllusts.length) {
       return c.json({ data: [] });
@@ -155,7 +47,12 @@ app.get("/api/favorites", async (c) => {
       const pages =
         pageCount > 1 && illust.meta_pages
           ? illust.meta_pages
-              .map((page) => page.image_urls?.large || page.image_urls?.medium)
+              .map(
+                (page) =>
+                  page.image_urls?.original ||
+                  page.image_urls?.large ||
+                  page.image_urls?.medium
+              )
               .filter((url): url is string => !!url)
           : undefined;
 
@@ -166,7 +63,7 @@ app.get("/api/favorites", async (c) => {
           id: illust.user?.id,
           name: illust.user?.name,
         },
-        imageUrl: illust.image_urls?.medium,
+        imageUrl: illust.image_urls?.large || illust.image_urls?.medium,
         artworkUrl: `https://www.pixiv.net/artworks/${illust.id}`,
         userUrl: illust.user?.id
           ? `https://www.pixiv.net/users/${illust.user.id}`
@@ -177,22 +74,15 @@ app.get("/api/favorites", async (c) => {
       };
     });
 
-    const response = c.json(
-      { data: payload },
-      200,
-      {
-        "Cache-Control": "public, max-age=300",
-      }
-    );
-    c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
-    return response;
+    return c.json({ data: payload });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Pixiv API error";
+    console.error("Pixiv API error:", error);
     return c.json({ error: message }, 500);
   }
 });
 
-app.get("/api/image", async (c) => {
+app.get("/image", async (c) => {
   const target = c.req.query("url");
   if (!target) {
     return c.json({ error: "url query is required" }, 400);
@@ -222,7 +112,7 @@ app.get("/api/image", async (c) => {
   }
   headers.set("Cache-Control", "public, max-age=86400");
 
-  return new Response(imageResponse.body, {
+  return new Response(imageResponse.body as ReadableStream, {
     status: imageResponse.status,
     headers,
   });
@@ -234,11 +124,6 @@ type PixivAuth = {
   user: {
     id: string;
   };
-};
-
-type PixivConfig = {
-  appVersion: string;
-  userAgent: string;
 };
 
 type PixivIllust = {
@@ -272,10 +157,7 @@ type PixivBookmarkResponse = {
   next_url?: string | null;
 };
 
-async function refreshAccessToken(
-  refreshToken: string,
-  config: PixivConfig
-): Promise<PixivAuth> {
+async function refreshAccessToken(refreshToken: string): Promise<PixivAuth> {
   const payload = new URLSearchParams({
     client_id: CLIENT_ID,
     client_secret: CLIENT_SECRET,
@@ -289,11 +171,13 @@ async function refreshAccessToken(
     method: "POST",
     headers: buildHeaders({
       "Content-Type": "application/x-www-form-urlencoded",
-    }, config),
+    }),
     body: payload,
   });
 
   if (!response.ok) {
+    const text = await response.text();
+    console.error("Pixiv auth error:", response.status, text);
     throw new Error(`Pixiv auth failed: ${response.status}`);
   }
 
@@ -301,19 +185,12 @@ async function refreshAccessToken(
   return data.response as PixivAuth;
 }
 
-async function fetchAllBookmarks(
-  auth: PixivAuth,
-  config: PixivConfig
-): Promise<PixivIllust[]> {
+async function fetchAllBookmarks(auth: PixivAuth): Promise<PixivIllust[]> {
   const results: PixivIllust[] = [];
   let nextUrl: string | null = `${BASE_URL}/v1/user/bookmarks/illust?user_id=${auth.user.id}&restrict=public`;
 
   while (nextUrl) {
-    const data = await pixivRequest<PixivBookmarkResponse>(
-      nextUrl,
-      auth,
-      config
-    );
+    const data = await pixivRequest<PixivBookmarkResponse>(nextUrl, auth);
     if (data.illusts?.length) {
       results.push(...data.illusts);
     }
@@ -335,15 +212,11 @@ function normalizeNextUrl(nextUrl: string | null | undefined, userId: string) {
   return filtered ? `${base}&${filtered}` : base;
 }
 
-async function pixivRequest<T>(
-  url: string,
-  auth: PixivAuth,
-  config: PixivConfig
-): Promise<T> {
+async function pixivRequest<T>(url: string, auth: PixivAuth): Promise<T> {
   const response = await fetch(url, {
     headers: buildHeaders({
       Authorization: `Bearer ${auth.access_token}`,
-    }, config),
+    }),
   });
 
   if (!response.ok) {
@@ -353,24 +226,18 @@ async function pixivRequest<T>(
   return (await response.json()) as T;
 }
 
-function buildHeaders(extra: Record<string, string>, config: PixivConfig) {
-  const time = new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00");
+function buildHeaders(extra: Record<string, string>) {
+  const time = new Date().toISOString();
   return {
-    "User-Agent": config.userAgent,
+    "User-Agent": USER_AGENT,
     "Accept-Language": "en-us",
     "App-OS": "android",
-    "App-OS-Version": "13.0",
-    "App-Version": config.appVersion,
+    "App-OS-Version": "9.0",
+    "App-Version": "5.0.234",
     "X-Client-Time": time,
     "X-Client-Hash": md5(`${time}${HASH_SECRET}`),
     ...extra,
   };
-}
-
-function resolvePixivConfig(env: Env["Bindings"]): PixivConfig {
-  const appVersion = env.PIXIV_APP_VERSION || DEFAULT_APP_VERSION;
-  const userAgent = env.PIXIV_USER_AGENT || DEFAULT_USER_AGENT;
-  return { appVersion, userAgent };
 }
 
 function filterByTags(illusts: PixivIllust[], tags: string[], mode: "or" | "and") {
@@ -407,158 +274,6 @@ function clampNumber(value: number, min: number, max: number) {
 
 function md5(message: string) {
   return md5Hex(md5Bytes(message));
-}
-
-async function hashPassword(password: string) {
-  const data = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function parseCookies(cookieHeader: string | null) {
-  if (!cookieHeader) {
-    return new Map<string, string>();
-  }
-  return cookieHeader.split(";").reduce((map, part) => {
-    const [rawName, ...rest] = part.trim().split("=");
-    if (!rawName) {
-      return map;
-    }
-    map.set(rawName, rest.join("="));
-    return map;
-  }, new Map<string, string>());
-}
-
-async function isAuthenticated(c: Context<Env>) {
-  const configuredPassword = c.env.AUTH_PASSWORD;
-  if (!configuredPassword) {
-    return false;
-  }
-  const cookies = parseCookies(c.req.header("Cookie"));
-  const token = cookies.get(AUTH_COOKIE);
-  if (!token) {
-    return false;
-  }
-  const expected = await hashPassword(configuredPassword);
-  return token === expected;
-}
-
-function buildAuthCookie(token: string, url: string) {
-  const isSecure = new URL(url).protocol === "https:";
-  const secure = isSecure ? "; Secure" : "";
-  return `${AUTH_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${AUTH_TTL_SECONDS}${secure}`;
-}
-
-function renderLoginPage() {
-  const html = `<!doctype html>
-<html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pixiv Favorite Gallery</title>
-    <style>
-      :root {
-        color-scheme: light;
-        font-family: "Helvetica Neue", Arial, sans-serif;
-      }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(140deg, #f5f5f5, #e8eef7);
-      }
-      .card {
-        width: min(360px, 90vw);
-        background: #ffffff;
-        border-radius: 16px;
-        padding: 28px;
-        box-shadow: 0 18px 60px rgba(15, 23, 42, 0.12);
-      }
-      h1 {
-        font-size: 20px;
-        margin: 0 0 6px;
-      }
-      p {
-        margin: 0 0 18px;
-        color: #475569;
-        font-size: 14px;
-      }
-      input {
-        width: 100%;
-        border: 1px solid #cbd5f5;
-        border-radius: 10px;
-        padding: 10px 12px;
-        font-size: 14px;
-        box-sizing: border-box;
-      }
-      button {
-        width: 100%;
-        margin-top: 14px;
-        border: none;
-        border-radius: 10px;
-        padding: 10px 12px;
-        font-weight: 600;
-        font-size: 14px;
-        color: #ffffff;
-        background: #3b82f6;
-        cursor: pointer;
-      }
-      .error {
-        margin-top: 12px;
-        font-size: 12px;
-        color: #dc2626;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <h1>Pixiv Favorite Gallery</h1>
-      <p>閲覧にはパスワードが必要です。</p>
-      <form id="login-form">
-        <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
-        <button type="submit">ログイン</button>
-      </form>
-      <div id="error" class="error" aria-live="polite"></div>
-    </div>
-    <script>
-      const form = document.getElementById("login-form");
-      const passwordInput = document.getElementById("password");
-      const errorEl = document.getElementById("error");
-
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        errorEl.textContent = "";
-        const password = passwordInput.value.trim();
-        if (!password) {
-          errorEl.textContent = "パスワードを入力してください。";
-          return;
-        }
-        const res = await fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password })
-        });
-        if (!res.ok) {
-          errorEl.textContent = "パスワードが正しくありません。";
-          return;
-        }
-        window.location.reload();
-      });
-    </script>
-  </body>
-</html>`;
-
-  return new Response(html, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store",
-    },
-  });
 }
 
 function md5Bytes(message: string) {
@@ -710,4 +425,9 @@ function md5I(b: number, c: number, d: number) {
   return c ^ (b | ~d);
 }
 
-export default app;
+console.log(`Starting server on http://0.0.0.0:${PORT}`);
+serve({
+  fetch: app.fetch,
+  hostname: "0.0.0.0",
+  port: PORT,
+});
