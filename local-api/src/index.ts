@@ -30,6 +30,7 @@ app.get("/favorites", async (c) => {
     .map((tag) => tag.trim().toLowerCase())
     .filter(Boolean);
   const mode = c.req.query("mode") === "and" ? "and" : "or";
+  const ai = c.req.query("ai") || "all";
 
   try {
     const auth = await refreshAccessToken(PIXIV_REFRESH_TOKEN);
@@ -39,8 +40,9 @@ app.get("/favorites", async (c) => {
       return c.json({ data: [] });
     }
 
-    const filtered = filterByTags(allIllusts, tags, mode);
-    const selected = sampleArray(filtered, count);
+    const filteredByTags = filterByTags(allIllusts, tags, mode);
+    const filteredByAi = filterByAi(filteredByTags, ai);
+    const selected = sampleArray(filteredByAi, count);
 
     const payload = selected.map((illust) => {
       const pageCount = illust.page_count || 1;
@@ -71,6 +73,7 @@ app.get("/favorites", async (c) => {
         pageCount,
         pages,
         tags: (illust.tags || []).map((tag) => tag.name),
+        aiType: illust.illust_ai_type,
       };
     });
 
@@ -130,6 +133,7 @@ type PixivIllust = {
   id: number;
   title: string;
   type?: string;
+  illust_ai_type?: number;
   page_count?: number;
   image_urls?: {
     medium?: string;
@@ -251,6 +255,19 @@ function filterByTags(illusts: PixivIllust[], tags: string[], mode: "or" | "and"
     }
     return tags.some((tag) => illustTags.includes(tag));
   });
+}
+
+function filterByAi(illusts: PixivIllust[], ai: string) {
+  if (ai === "all") {
+    return illusts;
+  }
+  if (ai === "ai") {
+    return illusts.filter((illust) => illust.illust_ai_type === 2);
+  }
+  if (ai === "non-ai") {
+    return illusts.filter((illust) => !illust.illust_ai_type || illust.illust_ai_type !== 2);
+  }
+  return illusts;
 }
 
 function sampleArray<T>(items: T[], count: number) {

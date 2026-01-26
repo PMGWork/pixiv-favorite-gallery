@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
@@ -10,9 +10,7 @@ import {
   DialogClose,
 } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
-import { RadioGroup, RadioGroupItem } from "./components/ui/radio-group";
 import { Skeleton } from "./components/ui/skeleton";
-import { Slider } from "./components/ui/slider";
 
 type FavoriteItem = {
   id: number;
@@ -27,6 +25,7 @@ type FavoriteItem = {
   pageCount?: number;
   pages?: string[];
   tags?: string[];
+  aiType?: number;
 };
 
 const DEFAULT_COUNT = 30;
@@ -38,10 +37,11 @@ function apiFetch(path: string, options: RequestInit = {}) {
 }
 
 export default function App() {
-  const [count, setCount] = useState(DEFAULT_COUNT);
+  const count = DEFAULT_COUNT;
   const [includeTags, setIncludeTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [mode, setMode] = useState<"or" | "and">("or");
+  const [ai, setAi] = useState<"all" | "ai" | "non-ai">("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<FavoriteItem[]>([]);
@@ -69,6 +69,7 @@ export default function App() {
       const params = new URLSearchParams({
         count: String(count),
         mode,
+        ai,
       });
       if (includeTags.length > 0) {
         params.append("tags", tags);
@@ -103,23 +104,6 @@ export default function App() {
         <Card className="border-border/70 bg-card">
           <CardContent className="grid gap-6 p-6 lg:grid-cols-[1.1fr,1fr]">
             <div className="space-y-4">
-              <div>
-                <p className="text-sm font-semibold text-muted-foreground">表示枚数</p>
-                <div className="mt-3 flex items-center gap-4">
-                  <Slider
-                    min={10}
-                    max={50}
-                    step={1}
-                    value={[count]}
-                    onValueChange={(value) => setCount(value[0])}
-                    className="flex-1"
-                  />
-                  <div className="rounded-full bg-secondary px-3 py-1 text-sm font-semibold text-secondary-foreground">
-                    {count}枚
-                  </div>
-                </div>
-              </div>
-
               <div>
                 <p className="text-sm font-semibold text-muted-foreground">タグ</p>
                 <div className="mt-2 flex gap-2">
@@ -173,20 +157,69 @@ export default function App() {
             <div className="flex h-full flex-col justify-between gap-6">
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-muted-foreground">検索モード</p>
-                <RadioGroup
-                  value={mode}
-                  onValueChange={(value) => setMode(value as "or" | "and")}
-                  className="grid gap-3"
-                >
-                  <label className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium">
-                    <RadioGroupItem value="or" id="mode-or" />
-                    <span>OR検索（いずれか一致）</span>
-                  </label>
-                  <label className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium">
-                    <RadioGroupItem value="and" id="mode-and" />
-                    <span>AND検索（すべて一致）</span>
-                  </label>
-                </RadioGroup>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode("or")}
+                    className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      mode === "or"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card border-border hover:bg-accent/50"
+                    }`}
+                  >
+                    OR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("and")}
+                    className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      mode === "and"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card border-border hover:bg-accent/50"
+                    }`}
+                  >
+                    AND
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-muted-foreground">AI判定</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAi("all")}
+                    className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      ai === "all"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card border-border hover:bg-accent/50"
+                    }`}
+                  >
+                    全て
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAi("ai")}
+                    className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      ai === "ai"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card border-border hover:bg-accent/50"
+                    }`}
+                  >
+                    AI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAi("non-ai")}
+                    className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      ai === "non-ai"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card border-border hover:bg-accent/50"
+                    }`}
+                  >
+                    非AI
+                  </button>
+                </div>
               </div>
 
               <Button onClick={handleFetch} disabled={loading} size="lg">
@@ -233,25 +266,30 @@ export default function App() {
             {items.map((item) => (
               <Card key={item.id} className="mb-6 break-inside-avoid overflow-hidden p-0">
                 <CardContent className="group relative p-0">
-                  <button
-                    onClick={() => {
-                      setSelectedItem(item);
-                      setCurrentPage(0);
-                    }}
-                    className="block w-full text-left"
-                  >
-                    <div className="relative overflow-hidden bg-muted">
-                      {item.pageCount && item.pageCount > 1 && (
-                        <div className="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
-                          {item.pageCount}
-                        </div>
-                      )}
-                      <img
-                        src={buildImageProxyUrl(item.imageUrl)}
-                        alt={item.title}
-                        className="w-full object-contain transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                      />
+                   <button
+                     onClick={() => {
+                       setSelectedItem(item);
+                       setCurrentPage(0);
+                     }}
+                     className="block w-full text-left"
+                   >
+                     <div className="relative overflow-hidden bg-muted">
+                       {item.aiType === 2 && (
+                         <div className="absolute left-2 top-2 z-10 rounded-full bg-purple-500/90 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
+                           AI
+                         </div>
+                       )}
+                       {item.pageCount && item.pageCount > 1 && (
+                         <div className="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
+                           {item.pageCount}
+                         </div>
+                       )}
+                       <img
+                         src={buildImageProxyUrl(item.imageUrl)}
+                         alt={item.title}
+                         className="w-full object-contain transition-transform duration-500 group-hover:scale-105"
+                         loading="lazy"
+                       />
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 text-white">
                       <p className="truncate text-sm font-semibold text-white">
@@ -308,6 +346,11 @@ export default function App() {
                   alt={selectedItem.title}
                   className="h-screen w-full object-contain"
                 />
+                {selectedItem.aiType === 2 && (
+                  <div className="absolute left-4 top-4 rounded-full bg-purple-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                    AI
+                  </div>
+                )}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6">
                   <div className="flex items-end justify-between gap-4">
                     <div className="flex-1">
