@@ -3,4 +3,4 @@ main = "src/index.ts"
 compatibility_date = "2026-01-26"
 
 [vars]
-PIXIV_REFRESH_TOKEN = "ai4NlDHyHooiQDP0UbXyWjIjd5vEgeMrw9yaFW_S4u4"
+PIXIV_REFRESH_TOKEN = ""
