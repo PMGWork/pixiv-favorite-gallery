@@ -20,6 +20,8 @@ pnpm-debug.log*
 *.tsbuildinfo
 dist/
 lib/
+!web/src/lib/
+!web/src/lib/**
 build/
 
 # Cloudflare Wrangler / Miniflare
