@@ -5,6 +5,7 @@ import { serve } from "@hono/node-server";
 
 const BASE_URL = "https://app-api.pixiv.net";
 const AUTH_URL = "https://oauth.secure.pixiv.net/auth/token";
+const RAINDROP_BASE_URL = "https://api.raindrop.io/rest/v1";
 const CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT";
 const CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj";
 const HASH_SECRET =
@@ -12,11 +13,15 @@ const HASH_SECRET =
 const USER_AGENT = "PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)";
 
 const PIXIV_REFRESH_TOKEN = process.env.PIXIV_REFRESH_TOKEN || "";
+const RAINDROP_TOKEN = process.env.RAINDROP_TOKEN || "";
 const PORT = parseInt(process.env.PORT || "3010", 10);
 
 if (!PIXIV_REFRESH_TOKEN) {
-  console.error("PIXIV_REFRESH_TOKEN is required");
-  process.exit(1);
+  console.warn("PIXIV_REFRESH_TOKEN is not set; Pixiv source is disabled.");
+}
+
+if (!RAINDROP_TOKEN) {
+  console.warn("RAINDROP_TOKEN is not set; Raindrop source is disabled.");
 }
 
 const app = new Hono();
@@ -31,8 +36,28 @@ app.get("/favorites", async (c) => {
     .filter(Boolean);
   const mode = c.req.query("mode") === "and" ? "and" : "or";
   const ai = c.req.query("ai") || "all";
+  const source = c.req.query("source") === "raindrop" ? "raindrop" : "pixiv";
 
   try {
+    if (source === "raindrop") {
+      if (!RAINDROP_TOKEN) {
+        return c.json({ error: "RAINDROP_TOKEN is required" }, 400);
+      }
+
+      const allRaindrops = await fetchAllRaindrops(RAINDROP_TOKEN);
+      if (!allRaindrops.length) {
+        return c.json({ data: [] });
+      }
+
+      const filteredByTags = filterByTagNames(allRaindrops, tags, mode);
+      const selected = sampleArray(filteredByTags, count);
+      return c.json({ data: selected });
+    }
+
+    if (!PIXIV_REFRESH_TOKEN) {
+      return c.json({ error: "PIXIV_REFRESH_TOKEN is required" }, 400);
+    }
+
     const auth = await refreshAccessToken(PIXIV_REFRESH_TOKEN);
     const allIllusts = await fetchAllBookmarks(auth);
 
@@ -60,6 +85,7 @@ app.get("/favorites", async (c) => {
 
       return {
         id: illust.id,
+        source: "pixiv",
         title: illust.title,
         user: {
           id: illust.user?.id,
@@ -74,13 +100,13 @@ app.get("/favorites", async (c) => {
         pages,
         tags: (illust.tags || []).map((tag) => tag.name),
         aiType: illust.illust_ai_type,
-      };
+      } satisfies FavoriteItem;
     });
 
     return c.json({ data: payload });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Pixiv API error";
-    console.error("Pixiv API error:", error);
+    const message = error instanceof Error ? error.message : "API error";
+    console.error("API error:", error);
     return c.json({ error: message }, 500);
   }
 });
@@ -129,6 +155,23 @@ type PixivAuth = {
   };
 };
 
+type FavoriteItem = {
+  id: number | string;
+  source: "pixiv" | "raindrop";
+  title: string;
+  user?: {
+    id: number;
+    name: string;
+  };
+  imageUrl?: string;
+  artworkUrl: string;
+  userUrl?: string;
+  pageCount?: number;
+  pages?: string[];
+  tags?: string[];
+  aiType?: number;
+};
+
 type PixivIllust = {
   id: number;
   title: string;
@@ -159,6 +202,23 @@ type PixivIllust = {
 type PixivBookmarkResponse = {
   illusts: PixivIllust[];
   next_url?: string | null;
+};
+
+type RaindropItem = {
+  _id: number;
+  title?: string;
+  excerpt?: string;
+  link?: string;
+  tags?: string[];
+  cover?: string | string[];
+  media?: Array<{
+    link?: string;
+  }>;
+};
+
+type RaindropResponse = {
+  items: RaindropItem[];
+  count: number;
 };
 
 async function refreshAccessToken(refreshToken: string): Promise<PixivAuth> {
@@ -204,6 +264,29 @@ async function fetchAllBookmarks(auth: PixivAuth): Promise<PixivIllust[]> {
   return results;
 }
 
+async function fetchAllRaindrops(token: string): Promise<FavoriteItem[]> {
+  const results: FavoriteItem[] = [];
+  const perPage = 50;
+  let page = 0;
+  let total = Infinity;
+
+  while (results.length < total) {
+    const url = `${RAINDROP_BASE_URL}/raindrops/0?perpage=${perPage}&page=${page}`;
+    const data = await raindropRequest<RaindropResponse>(url, token);
+    total = data.count || 0;
+    if (!data.items?.length) {
+      break;
+    }
+    results.push(...data.items.map(mapRaindropItem));
+    if (data.items.length < perPage) {
+      break;
+    }
+    page += 1;
+  }
+
+  return results;
+}
+
 function normalizeNextUrl(nextUrl: string | null | undefined, userId: string) {
   if (!nextUrl) {
     return null;
@@ -225,6 +308,21 @@ async function pixivRequest<T>(url: string, auth: PixivAuth): Promise<T> {
 
   if (!response.ok) {
     throw new Error(`Pixiv API error: ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function raindropRequest<T>(url: string, token: string): Promise<T> {
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Raindrop API error: ${response.status} ${text}`);
   }
 
   return (await response.json()) as T;
@@ -257,6 +355,19 @@ function filterByTags(illusts: PixivIllust[], tags: string[], mode: "or" | "and"
   });
 }
 
+function filterByTagNames(items: FavoriteItem[], tags: string[], mode: "or" | "and") {
+  if (!tags.length) {
+    return items;
+  }
+  return items.filter((item) => {
+    const itemTags = (item.tags || []).map((tag) => tag.toLowerCase());
+    if (mode === "and") {
+      return tags.every((tag) => itemTags.includes(tag));
+    }
+    return tags.some((tag) => itemTags.includes(tag));
+  });
+}
+
 function filterByAi(illusts: PixivIllust[], ai: string) {
   if (ai === "all") {
     return illusts;
@@ -268,6 +379,31 @@ function filterByAi(illusts: PixivIllust[], ai: string) {
     return illusts.filter((illust) => !illust.illust_ai_type || illust.illust_ai_type !== 2);
   }
   return illusts;
+}
+
+function mapRaindropItem(item: RaindropItem): FavoriteItem {
+  const imageUrl = extractRaindropImageUrl(item);
+  const title = item.title?.trim() || item.excerpt?.trim() || "Untitled";
+  return {
+    id: item._id,
+    source: "raindrop",
+    title,
+    imageUrl,
+    artworkUrl: item.link || "",
+    tags: item.tags || [],
+  };
+}
+
+function extractRaindropImageUrl(item: RaindropItem): string | undefined {
+  if (typeof item.cover === "string" && item.cover) {
+    return item.cover;
+  }
+  if (Array.isArray(item.cover) && item.cover.length > 0) {
+    return item.cover[0];
+  }
+  const media = item.media || [];
+  const first = media.find((entry) => entry.link && entry.link.length > 0);
+  return first?.link;
 }
 
 function sampleArray<T>(items: T[], count: number) {
