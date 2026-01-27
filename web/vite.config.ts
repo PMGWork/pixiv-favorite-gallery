@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5180,
+    allowedHosts: ["macbookpro"],
     proxy: {
       "/favorites": "http://localhost:3010",
       "/image": "http://localhost:3010",
