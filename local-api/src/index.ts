@@ -29,7 +29,9 @@ const app = new Hono();
 app.use("*", cors({ origin: "*" }));
 
 app.get("/favorites", async (c) => {
-  const count = clampNumber(parseInt(c.req.query("count") || "20", 10), 10, 30);
+  const limit = clampNumber(parseInt(c.req.query("limit") || "20", 10), 10, 30);
+  const offset = Math.max(0, parseInt(c.req.query("offset") || "0", 10));
+  const seed = c.req.query("seed") || generateSeed();
   const tags = (c.req.query("tags") || "")
     .split(",")
     .map((tag) => tag.trim().toLowerCase())
@@ -46,12 +48,23 @@ app.get("/favorites", async (c) => {
 
       const allRaindrops = await fetchAllRaindrops(RAINDROP_TOKEN);
       if (!allRaindrops.length) {
-        return c.json({ data: [] });
+        return c.json({ data: [], offset: 0, hasMore: false, total: 0, seed });
       }
 
       const filteredByTags = filterByTagNames(allRaindrops, tags, mode);
-      const selected = sampleArray(filteredByTags, count);
-      return c.json({ data: selected });
+      const shuffled = seededShuffle(filteredByTags, seed);
+      const total = shuffled.length;
+      const selected = shuffled.slice(offset, offset + limit);
+      const nextOffset = offset + selected.length;
+      const hasMore = nextOffset < total;
+
+      return c.json({
+        data: selected,
+        offset: nextOffset,
+        hasMore,
+        total,
+        seed,
+      });
     }
 
     if (!PIXIV_REFRESH_TOKEN) {
@@ -62,12 +75,16 @@ app.get("/favorites", async (c) => {
     const allIllusts = await fetchAllBookmarks(auth);
 
     if (!allIllusts.length) {
-      return c.json({ data: [] });
+      return c.json({ data: [], offset: 0, hasMore: false, total: 0, seed });
     }
 
     const filteredByTags = filterByTags(allIllusts, tags, mode);
     const filteredByAi = filterByAi(filteredByTags, ai);
-    const selected = sampleArray(filteredByAi, count);
+    const shuffled = seededShuffle(filteredByAi, seed);
+    const total = shuffled.length;
+    const selected = shuffled.slice(offset, offset + limit);
+    const nextOffset = offset + selected.length;
+    const hasMore = nextOffset < total;
 
     const payload = selected.map((illust) => {
       const pageCount = illust.page_count || 1;
@@ -88,8 +105,8 @@ app.get("/favorites", async (c) => {
         source: "pixiv",
         title: illust.title,
         user: {
-          id: illust.user?.id,
-          name: illust.user?.name,
+          id: illust.user?.id ?? 0,
+          name: illust.user?.name ?? "",
         },
         imageUrl: illust.image_urls?.large || illust.image_urls?.medium,
         artworkUrl: `https://www.pixiv.net/artworks/${illust.id}`,
@@ -103,7 +120,13 @@ app.get("/favorites", async (c) => {
       } satisfies FavoriteItem;
     });
 
-    return c.json({ data: payload });
+    return c.json({
+      data: payload,
+      offset: nextOffset,
+      hasMore,
+      total,
+      seed,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "API error";
     console.error("API error:", error);
@@ -416,6 +439,41 @@ function sampleArray<T>(items: T[], count: number) {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy.slice(0, count);
+}
+
+function generateSeed(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+function seededShuffle<T>(items: T[], seed: string): T[] {
+  if (items.length <= 1) {
+    return [...items];
+  }
+
+  const copy = [...items];
+  let rng = createSeededRng(seed);
+
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+
+  return copy;
+}
+
+function createSeededRng(seed: string): () => number {
+  let h = 0xdeadbeef;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 2654435761);
+  }
+  h = (h ^ (h >>> 16)) >>> 0;
+
+  return function() {
+    h = (h + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) >>> 0;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 function clampNumber(value: number, min: number, max: number) {

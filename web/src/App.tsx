@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
 import { useSwipeable } from "react-swipeable";
 
@@ -39,15 +39,19 @@ function apiFetch(path: string, options: RequestInit = {}) {
 }
 
 export default function App() {
-  const count = DEFAULT_COUNT;
+  const limit = DEFAULT_COUNT;
   const [includeTags, setIncludeTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [mode, setMode] = useState<"or" | "and">("or");
   const [ai, setAi] = useState<"all" | "ai" | "non-ai">("all");
   const [source, setSource] = useState<"pixiv" | "raindrop">("pixiv");
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<FavoriteItem[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [seed, setSeed] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const [selectedItem, setSelectedItem] = useState<FavoriteItem | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isUiHidden, setIsUiHidden] = useState(false);
@@ -120,9 +124,15 @@ export default function App() {
     const tagsParam = activeTags.join(", ");
     setLoading(true);
     setError(null);
+    setItems([]);
+    setOffset(0);
+    setSeed(null);
+    setHasMore(true);
+
     try {
       const params = new URLSearchParams({
-        count: String(count),
+        limit: String(limit),
+        offset: "0",
         mode,
         source,
       });
@@ -146,11 +156,60 @@ export default function App() {
       }
       const data = await response.json();
       setItems(data.data || []);
+      setOffset(data.offset || 0);
+      setSeed(data.seed || null);
+      setHasMore(data.hasMore ?? false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "読み込みに失敗しました";
       setError(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore || !seed) return;
+
+    const tagsParam = includeTags.join(", ");
+    setLoadingMore(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams({
+        limit: String(limit),
+        offset: String(offset),
+        seed: seed,
+        mode,
+        source,
+      });
+      if (source === "pixiv") {
+        params.set("ai", ai);
+      }
+      if (includeTags.length > 0) {
+        params.append("tags", tagsParam);
+      }
+      const response = await apiFetch(`/favorites?${params.toString()}`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        const message = payload?.error
+          ? `API error: ${payload.error}`
+          : `API error: ${response.status}`;
+        throw new Error(message);
+      }
+      const data = await response.json();
+
+      const newItems = data.data || [];
+      const existingIds = new Set(items.map(item => item.id));
+      const uniqueNewItems = newItems.filter((item: FavoriteItem) => !existingIds.has(item.id));
+
+      setItems(prev => [...prev, ...uniqueNewItems]);
+      setOffset(data.offset || offset + newItems.length);
+      setHasMore(data.hasMore ?? false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "読み込みに失敗しました";
+      setError(message);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -330,7 +389,7 @@ export default function App() {
 
         {loading && (
           <div className="columns-1 gap-6 sm:columns-2 lg:columns-4">
-            {Array.from({ length: count }).map((_, index) => (
+            {Array.from({ length: limit }).map((_, index) => (
               <Card key={`skeleton-${index}`} className="mb-6 break-inside-avoid overflow-hidden p-0">
                 <CardContent className="flex flex-col p-0">
                   <Skeleton className="h-64 w-full" />
@@ -437,6 +496,32 @@ export default function App() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        )}
+
+        {items.length > 0 && (
+          <div className="py-8 flex flex-col items-center gap-4">
+            {hasMore && !loadingMore && (
+              <Button
+                onClick={loadMore}
+                disabled={loadingMore}
+                variant="secondary"
+                size="lg"
+              >
+                さらに読み込む
+              </Button>
+            )}
+            {loadingMore && (
+              <div className="flex items-center justify-center gap-3 text-muted-foreground">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <span className="text-sm">読み込み中...</span>
+              </div>
+            )}
+            {!hasMore && (
+              <p className="text-center text-sm text-muted-foreground">
+                すべての作品を表示しました
+              </p>
+            )}
           </div>
         )}
 
