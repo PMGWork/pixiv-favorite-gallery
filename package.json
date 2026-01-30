@@ -5,7 +5,8 @@
   "description": "Random Gallery - Pixiv/Raindrop favorite viewer",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r --filter ./web build",
-    "preview": "pnpm -r --filter ./web preview"
+    "build": "pnpm -r --filter @random-gallery/web build",
+    "preview": "pnpm -r --filter @random-gallery/web preview",
+    "build:shared": "pnpm -r --filter @random-gallery/shared build"
   }
 }

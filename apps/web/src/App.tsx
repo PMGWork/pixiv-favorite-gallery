@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
 import { useSwipeable } from "react-swipeable";
+import type { FavoriteItem } from "@random-gallery/shared";
 
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
@@ -12,23 +13,6 @@ import {
 } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
 import { Skeleton } from "./components/ui/skeleton";
-
-type FavoriteItem = {
-  id: number | string;
-  source: "pixiv" | "raindrop";
-  title: string;
-  user?: {
-    id: number;
-    name: string;
-  };
-  imageUrl?: string;
-  artworkUrl: string;
-  userUrl?: string;
-  pageCount?: number;
-  pages?: string[];
-  tags?: string[];
-  aiType?: number;
-};
 
 const DEFAULT_COUNT = 20;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";

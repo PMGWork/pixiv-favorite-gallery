@@ -2,6 +2,7 @@ import "dotenv/config";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
+import type { FavoriteItem } from "@random-gallery/shared";
 
 const BASE_URL = "https://app-api.pixiv.net";
 const AUTH_URL = "https://oauth.secure.pixiv.net/auth/token";
@@ -176,23 +177,6 @@ type PixivAuth = {
   user: {
     id: string;
   };
-};
-
-type FavoriteItem = {
-  id: number | string;
-  source: "pixiv" | "raindrop";
-  title: string;
-  user?: {
-    id: number;
-    name: string;
-  };
-  imageUrl?: string;
-  artworkUrl: string;
-  userUrl?: string;
-  pageCount?: number;
-  pages?: string[];
-  tags?: string[];
-  aiType?: number;
 };
 
 type PixivIllust = {
