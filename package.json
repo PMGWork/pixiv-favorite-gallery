@@ -4,14 +4,8 @@
   "version": "1.0.0",
   "description": "Random Gallery - Pixiv/Raindrop favorite viewer",
   "scripts": {
-    "dev": "concurrently \"npm --prefix web run dev\" \"npm --prefix local-api run start\" --names \"WEB,API\"",
-    "dev:web": "npm --prefix web run dev",
-    "dev:api": "npm --prefix local-api run start",
-    "build": "npm --prefix web run build",
-    "build:api": "npm --prefix local-api run build",
-    "preview": "npm --prefix web run preview"
-  },
-  "devDependencies": {
-    "concurrently": "^9.1.2"
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r --filter ./web build",
+    "preview": "pnpm -r --filter ./web preview"
   }
 }
