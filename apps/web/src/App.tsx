@@ -27,6 +27,8 @@ export default function App() {
   const [includeTags, setIncludeTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [mode, setMode] = useState<"or" | "and">("or");
+  const [appliedTags, setAppliedTags] = useState<string[]>([]);
+  const [appliedMode, setAppliedMode] = useState<"or" | "and">("or");
   const [ai, setAi] = useState<"all" | "ai" | "non-ai">("all");
   const [source, setSource] = useState<"pixiv" | "raindrop">("pixiv");
   const [loading, setLoading] = useState(false);
@@ -60,28 +62,64 @@ export default function App() {
     trackMouse: false,
   });
 
-  const tags = includeTags.join(", ");
+  const parseTagsFromInput = (input: string) => {
+    const parts = input
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const tag of parts) {
+      const normalized = tag.toLowerCase();
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        result.push(tag);
+      }
+    }
+    return result;
+  };
+
+  const addTags = (tagsToAdd: string[]) => {
+    setIncludeTags((prev) => {
+      const normalized = new Set(prev.map((value) => value.toLowerCase()));
+      const next = [...prev];
+      for (const tag of tagsToAdd) {
+        const trimmed = tag.trim();
+        if (!trimmed) continue;
+        const key = trimmed.toLowerCase();
+        if (normalized.has(key)) continue;
+        normalized.add(key);
+        next.push(trimmed);
+      }
+      return next;
+    });
+  };
 
   const filteredItems = useMemo(() => {
-    if (includeTags.length === 0) {
+    if (appliedTags.length === 0) {
       return items;
     }
-    const normalizedTags = includeTags.map((tag) => tag.toLowerCase());
+    const normalizedTags = appliedTags.map((tag) => tag.toLowerCase());
     return items.filter((item) => {
       const itemTags = (item.tags || []).map((tag) => tag.toLowerCase());
-      if (mode === "and") {
+      if (appliedMode === "and") {
         return normalizedTags.every((tag) => itemTags.includes(tag));
       }
       return normalizedTags.some((tag) => itemTags.includes(tag));
     });
-  }, [items, includeTags, mode]);
+  }, [items, appliedTags, appliedMode]);
 
-  const addTag = (tag: string) => {
-    const normalized = includeTags.map((value) => value.toLowerCase());
-    if (!tag.trim() || normalized.includes(tag.trim().toLowerCase())) {
+  const addTagsFromInput = () => {
+    const parsed = parseTagsFromInput(tagInput);
+    if (parsed.length === 0) {
       return;
     }
-    setIncludeTags((prev) => [...prev, tag.trim()]);
+    const normalizedExisting = new Set(includeTags.map((value) => value.toLowerCase()));
+    const hasNew = parsed.some((tag) => !normalizedExisting.has(tag.toLowerCase()));
+    addTags(parsed);
+    if (hasNew) {
+      setTagInput("");
+    }
   };
 
   const removeTag = (tag: string) => {
@@ -89,12 +127,7 @@ export default function App() {
   };
 
   const handleTagClick = (tag: string, closeModal: boolean) => {
-    const normalized = includeTags.map((value) => value.toLowerCase());
-    const trimmedTag = tag.trim().toLowerCase();
-    if (!normalized.includes(trimmedTag)) {
-      const nextTags = [...includeTags, tag.trim()];
-      setIncludeTags(nextTags);
-    }
+    addTags([tag]);
     if (closeModal) {
       setSelectedItem(null);
       setIsUiHidden(false);
@@ -143,6 +176,8 @@ export default function App() {
       setOffset(data.offset || 0);
       setSeed(data.seed || null);
       setHasMore(data.hasMore ?? false);
+      setAppliedTags(activeTags);
+      setAppliedMode(mode);
     } catch (err) {
       const message = err instanceof Error ? err.message : "読み込みに失敗しました";
       setError(message);
@@ -154,7 +189,7 @@ export default function App() {
   const loadMore = async () => {
     if (loadingMore || !hasMore || !seed) return;
 
-    const tagsParam = includeTags.join(", ");
+    const tagsParam = appliedTags.join(", ");
     setLoadingMore(true);
     setError(null);
 
@@ -163,13 +198,13 @@ export default function App() {
         limit: String(limit),
         offset: String(offset),
         seed: seed,
-        mode,
+        mode: appliedMode,
         source,
       });
       if (source === "pixiv") {
         params.set("ai", ai);
       }
-      if (includeTags.length > 0) {
+      if (appliedTags.length > 0) {
         params.append("tags", tagsParam);
       }
       const response = await apiFetch(`/favorites?${params.toString()}`);
@@ -218,18 +253,16 @@ export default function App() {
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        addTag(tagInput);
-                        setTagInput("");
+                        addTagsFromInput();
                       }
                     }}
-                    placeholder="例: 風景"
+                    placeholder="例: 風景, 夜"
                     className="flex-1"
                   />
                   <Button
                     type="button"
                     onClick={() => {
-                      addTag(tagInput);
-                      setTagInput("");
+                      addTagsFromInput();
                     }}
                     disabled={!tagInput.trim()}
                     size="sm"
