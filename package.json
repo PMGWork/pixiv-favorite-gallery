@@ -7,6 +7,11 @@
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r --filter @random-gallery/web build",
     "preview": "pnpm -r --filter @random-gallery/web preview",
-    "build:shared": "pnpm -r --filter @random-gallery/shared build"
+    "build:shared": "pnpm -r --filter @random-gallery/shared build",
+    "prepare": "vp config"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "devDependencies": {
+    "vite-plus": "catalog:"
   }
 }
