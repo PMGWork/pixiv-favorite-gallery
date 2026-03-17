@@ -486,7 +486,7 @@ export default function App() {
                         </div>
                       )}
                     </div>
-                    <div className="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 text-white">
+                    <div className="absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/80 via-black/40 to-transparent p-4 text-white">
                       <p className="truncate text-sm font-semibold text-white">{item.title}</p>
                       {item.source === "pixiv" ? (
                         item.user?.name && item.userUrl ? (
@@ -598,7 +598,7 @@ export default function App() {
                   </div>
                 )}
                 <div
-                  className={`absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 transition-all duration-300 ease-out ${
+                  className={`absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/90 via-black/50 to-transparent p-6 transition-all duration-300 ease-out ${
                     isUiHidden
                       ? "pointer-events-none translate-y-4 opacity-0"
                       : "translate-y-0 opacity-100"
