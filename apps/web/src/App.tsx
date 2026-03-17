@@ -6,11 +6,7 @@ import type { FavoriteItem } from "@random-gallery/shared";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
 import { Card, CardContent } from "./components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogClose,
-} from "./components/ui/dialog";
+import { Dialog, DialogContent, DialogClose } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
 import { Skeleton } from "./components/ui/skeleton";
 
@@ -45,17 +41,29 @@ export default function App() {
 
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {
-      if (selectedItem?.source === "pixiv" && selectedItem.pageCount && selectedItem.pageCount > 1) {
+      if (
+        selectedItem?.source === "pixiv" &&
+        selectedItem.pageCount &&
+        selectedItem.pageCount > 1
+      ) {
         setCurrentPage((p) => Math.min((selectedItem.pageCount || 1) - 1, p + 1));
         isSwipeActive.current = true;
-        setTimeout(() => { isSwipeActive.current = false; }, 100);
+        setTimeout(() => {
+          isSwipeActive.current = false;
+        }, 100);
       }
     },
     onSwipedRight: () => {
-      if (selectedItem?.source === "pixiv" && selectedItem.pageCount && selectedItem.pageCount > 1) {
+      if (
+        selectedItem?.source === "pixiv" &&
+        selectedItem.pageCount &&
+        selectedItem.pageCount > 1
+      ) {
         setCurrentPage((p) => Math.max(0, p - 1));
         isSwipeActive.current = true;
-        setTimeout(() => { isSwipeActive.current = false; }, 100);
+        setTimeout(() => {
+          isSwipeActive.current = false;
+        }, 100);
       }
     },
     preventScrollOnSwipe: true,
@@ -218,10 +226,10 @@ export default function App() {
       const data = await response.json();
 
       const newItems = data.data || [];
-      const existingIds = new Set(items.map(item => item.id));
+      const existingIds = new Set(items.map((item) => item.id));
       const uniqueNewItems = newItems.filter((item: FavoriteItem) => !existingIds.has(item.id));
 
-      setItems(prev => [...prev, ...uniqueNewItems]);
+      setItems((prev) => [...prev, ...uniqueNewItems]);
       setOffset(data.offset || offset + newItems.length);
       setHasMore(data.hasMore ?? false);
     } catch (err) {
@@ -236,9 +244,7 @@ export default function App() {
     <div className="min-h-screen px-6 py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
         <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-foreground">
-            Random Gallery
-          </h1>
+          <h1 className="text-2xl font-semibold text-foreground">Random Gallery</h1>
         </header>
 
         <Card className="border-border/70 bg-card">
@@ -277,7 +283,7 @@ export default function App() {
                         key={tag}
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-xs font-semibold transition hover:bg-accent/80"
+                        className="hover:bg-accent/80 flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-xs font-semibold transition"
                       >
                         {tag}
                         <X className="h-3 w-3" />
@@ -301,8 +307,8 @@ export default function App() {
                     onClick={() => setSource("pixiv")}
                     className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                       source === "pixiv"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card border-border hover:bg-accent/50"
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "hover:bg-accent/50 border-border bg-card"
                     }`}
                   >
                     Pixiv
@@ -312,8 +318,8 @@ export default function App() {
                     onClick={() => setSource("raindrop")}
                     className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                       source === "raindrop"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card border-border hover:bg-accent/50"
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "hover:bg-accent/50 border-border bg-card"
                     }`}
                   >
                     Raindrop
@@ -329,8 +335,8 @@ export default function App() {
                     onClick={() => setMode("or")}
                     className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                       mode === "or"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card border-border hover:bg-accent/50"
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "hover:bg-accent/50 border-border bg-card"
                     }`}
                   >
                     OR
@@ -340,8 +346,8 @@ export default function App() {
                     onClick={() => setMode("and")}
                     className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                       mode === "and"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card border-border hover:bg-accent/50"
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "hover:bg-accent/50 border-border bg-card"
                     }`}
                   >
                     AND
@@ -358,8 +364,8 @@ export default function App() {
                       onClick={() => setAi("all")}
                       className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                         ai === "all"
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-card border-border hover:bg-accent/50"
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "hover:bg-accent/50 border-border bg-card"
                       }`}
                     >
                       全て
@@ -369,8 +375,8 @@ export default function App() {
                       onClick={() => setAi("ai")}
                       className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                         ai === "ai"
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-card border-border hover:bg-accent/50"
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "hover:bg-accent/50 border-border bg-card"
                       }`}
                     >
                       AI
@@ -380,8 +386,8 @@ export default function App() {
                       onClick={() => setAi("non-ai")}
                       className={`flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                         ai === "non-ai"
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-card border-border hover:bg-accent/50"
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "hover:bg-accent/50 border-border bg-card"
                       }`}
                     >
                       非AI
@@ -390,7 +396,14 @@ export default function App() {
                 </div>
               )}
 
-              <Button onClick={(e) => { e.preventDefault(); handleFetch(); }} disabled={loading} size="lg">
+              <Button
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleFetch();
+                }}
+                disabled={loading}
+                size="lg"
+              >
                 {loading ? "取得中..." : "ランダム取得"}
               </Button>
             </div>
@@ -407,7 +420,10 @@ export default function App() {
         {loading && (
           <div className="columns-1 gap-6 sm:columns-2 lg:columns-4">
             {Array.from({ length: limit }).map((_, index) => (
-              <Card key={`skeleton-${index}`} className="mb-6 break-inside-avoid overflow-hidden p-0">
+              <Card
+                key={`skeleton-${index}`}
+                className="mb-6 break-inside-avoid overflow-hidden p-0"
+              >
                 <CardContent className="flex flex-col p-0">
                   <Skeleton className="h-64 w-full" />
                   <div className="bg-muted/90 p-4">
@@ -434,46 +450,44 @@ export default function App() {
             {filteredItems.map((item) => (
               <Card key={item.id} className="mb-6 break-inside-avoid overflow-hidden p-0">
                 <CardContent className="group relative p-0">
-                    <button
-                      onClick={() => {
-                        if (item.source === "raindrop") {
-                          window.open(item.artworkUrl, "_blank", "noopener,noreferrer");
-                          return;
-                        }
-                        setSelectedItem(item);
-                        setCurrentPage(0);
-                        setIsUiHidden(true);
-                      }}
-                      className="block w-full text-left"
-                    >
-                     <div className="relative overflow-hidden bg-muted">
-                        {item.source === "pixiv" && item.aiType === 2 && (
-                          <div className="absolute left-2 top-2 z-10 rounded-full bg-purple-500/90 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
-                            AI
-                          </div>
-                        )}
-                        {item.source === "pixiv" && item.pageCount && item.pageCount > 1 && (
-                          <div className="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
-                            {item.pageCount}
-                          </div>
-                        )}
-                        {buildImageUrl(item) ? (
-                          <img
-                            src={buildImageUrl(item)}
-                            alt={item.title}
-                            className="w-full object-contain transition-transform duration-500 group-hover:scale-105"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-64 items-center justify-center bg-muted text-sm text-muted-foreground">
-                            No image
-                          </div>
-                        )}
+                  <button
+                    onClick={() => {
+                      if (item.source === "raindrop") {
+                        window.open(item.artworkUrl, "_blank", "noopener,noreferrer");
+                        return;
+                      }
+                      setSelectedItem(item);
+                      setCurrentPage(0);
+                      setIsUiHidden(true);
+                    }}
+                    className="block w-full text-left"
+                  >
+                    <div className="relative overflow-hidden bg-muted">
+                      {item.source === "pixiv" && item.aiType === 2 && (
+                        <div className="absolute left-2 top-2 z-10 rounded-full bg-purple-500/90 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
+                          AI
+                        </div>
+                      )}
+                      {item.source === "pixiv" && item.pageCount && item.pageCount > 1 && (
+                        <div className="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
+                          {item.pageCount}
+                        </div>
+                      )}
+                      {buildImageUrl(item) ? (
+                        <img
+                          src={buildImageUrl(item)}
+                          alt={item.title}
+                          className="w-full object-contain transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-64 items-center justify-center bg-muted text-sm text-muted-foreground">
+                          No image
+                        </div>
+                      )}
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 text-white">
-                      <p className="truncate text-sm font-semibold text-white">
-                        {item.title}
-                      </p>
+                      <p className="truncate text-sm font-semibold text-white">{item.title}</p>
                       {item.source === "pixiv" ? (
                         item.user?.name && item.userUrl ? (
                           <a
@@ -517,14 +531,9 @@ export default function App() {
         )}
 
         {items.length > 0 && (
-          <div className="py-8 flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-4 py-8">
             {hasMore && !loadingMore && (
-              <Button
-                onClick={loadMore}
-                disabled={loadingMore}
-                variant="secondary"
-                size="lg"
-              >
+              <Button onClick={loadMore} disabled={loadingMore} variant="secondary" size="lg">
                 さらに読み込む
               </Button>
             )}
@@ -542,11 +551,16 @@ export default function App() {
           </div>
         )}
 
-        <Dialog open={!!selectedItem} onOpenChange={(open) => {!open && (setSelectedItem(null), setIsUiHidden(false))}}>
-          <DialogContent className="max-w-full h-screen p-0 border-0">
+        <Dialog
+          open={!!selectedItem}
+          onOpenChange={(open) => {
+            !open && (setSelectedItem(null), setIsUiHidden(false));
+          }}
+        >
+          <DialogContent className="h-screen max-w-full border-0 p-0">
             {selectedItem && (
-              <div 
-                className="relative h-screen w-full cursor-pointer overflow-hidden" 
+              <div
+                className="relative h-screen w-full cursor-pointer overflow-hidden"
                 onClick={() => {
                   if (!isSwipeActive.current) {
                     setIsUiHidden((v) => !v);
@@ -558,14 +572,14 @@ export default function App() {
                   selectedItem,
                   selectedItem.pages && selectedItem.pages.length > 0
                     ? selectedItem.pages[currentPage]
-                    : selectedItem.imageUrl
+                    : selectedItem.imageUrl,
                 ) ? (
                   <img
                     src={buildImageUrl(
                       selectedItem,
                       selectedItem.pages && selectedItem.pages.length > 0
                         ? selectedItem.pages[currentPage]
-                        : selectedItem.imageUrl
+                        : selectedItem.imageUrl,
                     )}
                     alt={selectedItem.title}
                     className="h-screen w-full object-contain"
@@ -580,41 +594,45 @@ export default function App() {
                     AI
                   </div>
                 )}
-                <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 transition-all duration-300 ease-out ${
-                  isUiHidden ? 'opacity-0 translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'
-                }`}>
-                    <div className="flex items-end justify-between gap-4">
-                      <div className="flex-1">
-                        <p className="text-lg font-semibold text-white">
-                          {selectedItem.title}
-                        </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          {selectedItem.user?.name && selectedItem.userUrl && (
-                            <a
-                              href={selectedItem.userUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-sm text-white/90 hover:text-white"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              by {selectedItem.user.name}
-                            </a>
-                          )}
-                          {selectedItem.artworkUrl && (
-                            <a
-                              href={selectedItem.artworkUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-sm text-white/90 hover:text-white transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              {selectedItem.source === "raindrop" ? "Raindropで開く" : "Pixivで開く"}
-                            </a>
-                          )}
-                        </div>
+                <div
+                  className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 transition-all duration-300 ease-out ${
+                    isUiHidden
+                      ? "pointer-events-none translate-y-4 opacity-0"
+                      : "translate-y-0 opacity-100"
+                  }`}
+                >
+                  <div className="flex items-end justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-lg font-semibold text-white">{selectedItem.title}</p>
+                      <div className="mt-1 flex items-center gap-3">
+                        {selectedItem.user?.name && selectedItem.userUrl && (
+                          <a
+                            href={selectedItem.userUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm text-white/90 hover:text-white"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            by {selectedItem.user.name}
+                          </a>
+                        )}
+                        {selectedItem.artworkUrl && (
+                          <a
+                            href={selectedItem.artworkUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-white/90 transition-colors hover:text-white"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {selectedItem.source === "raindrop" ? "Raindropで開く" : "Pixivで開く"}
+                          </a>
+                        )}
                       </div>
-                      {selectedItem.source === "pixiv" && selectedItem.pageCount && selectedItem.pageCount > 1 && (
+                    </div>
+                    {selectedItem.source === "pixiv" &&
+                      selectedItem.pageCount &&
+                      selectedItem.pageCount > 1 && (
                         <div className="flex items-center gap-3">
                           <Button
                             variant="secondary"
@@ -636,7 +654,7 @@ export default function App() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setCurrentPage((p) =>
-                                Math.min((selectedItem.pageCount || 1) - 1, p + 1)
+                                Math.min((selectedItem.pageCount || 1) - 1, p + 1),
                               );
                             }}
                             disabled={currentPage >= (selectedItem.pageCount || 1) - 1}
@@ -645,28 +663,30 @@ export default function App() {
                           </Button>
                         </div>
                       )}
-                    </div>
-                    {selectedItem.tags && selectedItem.tags.length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {selectedItem.tags.map((tag) => (
-                          <button
-                            key={`modal-tag-${tag}`}
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleTagClick(tag, true);
-                            }}
-                            className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white transition hover:bg-white/30"
-                          >
-                            {tag}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
-                <div className={`absolute right-4 top-4 transition-all duration-300 ease-out ${
-                  isUiHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'
-                }`}>
+                  {selectedItem.tags && selectedItem.tags.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {selectedItem.tags.map((tag) => (
+                        <button
+                          key={`modal-tag-${tag}`}
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleTagClick(tag, true);
+                          }}
+                          className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white transition hover:bg-white/30"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div
+                  className={`absolute right-4 top-4 transition-all duration-300 ease-out ${
+                    isUiHidden ? "pointer-events-none opacity-0" : "opacity-100"
+                  }`}
+                >
                   <DialogClose className="rounded-sm bg-black/50 p-2 text-white opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" />
                 </div>
               </div>

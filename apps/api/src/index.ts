@@ -9,8 +9,7 @@ const AUTH_URL = "https://oauth.secure.pixiv.net/auth/token";
 const RAINDROP_BASE_URL = "https://api.raindrop.io/rest/v1";
 const CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT";
 const CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj";
-const HASH_SECRET =
-  "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c";
+const HASH_SECRET = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c";
 const USER_AGENT = "PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)";
 
 const PIXIV_REFRESH_TOKEN = process.env.PIXIV_REFRESH_TOKEN || "";
@@ -94,9 +93,7 @@ app.get("/favorites", async (c) => {
           ? illust.meta_pages
               .map(
                 (page) =>
-                  page.image_urls?.original ||
-                  page.image_urls?.large ||
-                  page.image_urls?.medium
+                  page.image_urls?.original || page.image_urls?.large || page.image_urls?.medium,
               )
               .filter((url): url is string => !!url)
           : undefined;
@@ -111,9 +108,7 @@ app.get("/favorites", async (c) => {
         },
         imageUrl: illust.image_urls?.large || illust.image_urls?.medium,
         artworkUrl: `https://www.pixiv.net/artworks/${illust.id}`,
-        userUrl: illust.user?.id
-          ? `https://www.pixiv.net/users/${illust.user.id}`
-          : undefined,
+        userUrl: illust.user?.id ? `https://www.pixiv.net/users/${illust.user.id}` : undefined,
         pageCount,
         pages,
         tags: (illust.tags || []).map((tag) => tag.name),
@@ -258,7 +253,8 @@ async function refreshAccessToken(refreshToken: string): Promise<PixivAuth> {
 
 async function fetchAllBookmarks(auth: PixivAuth): Promise<PixivIllust[]> {
   const results: PixivIllust[] = [];
-  let nextUrl: string | null = `${BASE_URL}/v1/user/bookmarks/illust?user_id=${auth.user.id}&restrict=public`;
+  let nextUrl: string | null =
+    `${BASE_URL}/v1/user/bookmarks/illust?user_id=${auth.user.id}&restrict=public`;
 
   while (nextUrl) {
     const data = await pixivRequest<PixivBookmarkResponse>(nextUrl, auth);
@@ -452,8 +448,8 @@ function createSeededRng(seed: string): () => number {
   }
   h = (h ^ (h >>> 16)) >>> 0;
 
-  return function() {
-    h = (h + 0x6D2B79F5) >>> 0;
+  return function () {
+    h = (h + 0x6d2b79f5) >>> 0;
     let t = Math.imul(h ^ (h >>> 15), 1 | h);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) >>> 0;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -474,7 +470,7 @@ function md5(message: string) {
 function md5Bytes(message: string) {
   const data = new TextEncoder().encode(message);
   const length = data.length;
-  const withPadding = new Uint8Array(((length + 8) >> 6 << 6) + 64);
+  const withPadding = new Uint8Array((((length + 8) >> 6) << 6) + 64);
   withPadding.set(data);
   withPadding[length] = 0x80;
   const bitLen = length * 8;
@@ -598,7 +594,7 @@ function md5Step(
   x: number,
   s: number,
   t: number,
-  fn: (b: number, c: number, d: number) => number = md5F
+  fn: (b: number, c: number, d: number) => number = md5F,
 ) {
   const tmp = (a + fn(b, c, d) + x + t) >>> 0;
   return (b + ((tmp << s) | (tmp >>> (32 - s)))) >>> 0;
