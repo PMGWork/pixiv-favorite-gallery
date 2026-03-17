@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo } from "react";
 import { ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
 import { useSwipeable } from "react-swipeable";
 import type { FavoriteItem } from "@random-gallery/shared";
@@ -244,14 +244,14 @@ export default function App() {
     <div className="min-h-screen px-6 py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
         <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-foreground">Random Gallery</h1>
+          <h1 className="text-foreground text-2xl font-semibold">Random Gallery</h1>
         </header>
 
         <Card className="border-border/70 bg-card">
           <CardContent className="grid gap-6 p-6 lg:grid-cols-[1.1fr,1fr]">
             <div className="space-y-4">
               <div>
-                <p className="text-sm font-semibold text-muted-foreground">タグ</p>
+                <p className="text-muted-foreground text-sm font-semibold">タグ</p>
                 <div className="mt-2 flex gap-2">
                   <Input
                     value={tagInput}
@@ -283,7 +283,7 @@ export default function App() {
                         key={tag}
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="hover:bg-accent/80 flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-xs font-semibold transition"
+                        className="hover:bg-accent/80 bg-accent flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition"
                       >
                         {tag}
                         <X className="h-3 w-3" />
@@ -291,7 +291,7 @@ export default function App() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="text-muted-foreground mt-2 text-xs">
                     タグを未指定の場合は全件から抽出します。
                   </p>
                 )}
@@ -300,7 +300,7 @@ export default function App() {
 
             <div className="flex h-full flex-col justify-between gap-6">
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-muted-foreground">ソース</p>
+                <p className="text-muted-foreground text-sm font-semibold">ソース</p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -328,7 +328,7 @@ export default function App() {
               </div>
 
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-muted-foreground">検索モード</p>
+                <p className="text-muted-foreground text-sm font-semibold">検索モード</p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -357,7 +357,7 @@ export default function App() {
 
               {source === "pixiv" && (
                 <div className="space-y-3">
-                  <p className="text-sm font-semibold text-muted-foreground">AI判定</p>
+                  <p className="text-muted-foreground text-sm font-semibold">AI判定</p>
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
@@ -399,7 +399,7 @@ export default function App() {
               <Button
                 onClick={(e) => {
                   e.preventDefault();
-                  handleFetch();
+                  void handleFetch();
                 }}
                 disabled={loading}
                 size="lg"
@@ -462,14 +462,14 @@ export default function App() {
                     }}
                     className="block w-full text-left"
                   >
-                    <div className="relative overflow-hidden bg-muted">
+                    <div className="bg-muted relative overflow-hidden">
                       {item.source === "pixiv" && item.aiType === 2 && (
-                        <div className="absolute left-2 top-2 z-10 rounded-full bg-purple-500/90 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
+                        <div className="absolute top-2 left-2 z-10 rounded-full bg-purple-500/90 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
                           AI
                         </div>
                       )}
                       {item.source === "pixiv" && item.pageCount && item.pageCount > 1 && (
-                        <div className="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
+                        <div className="absolute top-2 right-2 z-10 rounded-full bg-black/70 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
                           {item.pageCount}
                         </div>
                       )}
@@ -481,12 +481,12 @@ export default function App() {
                           loading="lazy"
                         />
                       ) : (
-                        <div className="flex h-64 items-center justify-center bg-muted text-sm text-muted-foreground">
+                        <div className="bg-muted text-muted-foreground flex h-64 items-center justify-center text-sm">
                           No image
                         </div>
                       )}
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 text-white">
+                    <div className="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 text-white">
                       <p className="truncate text-sm font-semibold text-white">{item.title}</p>
                       {item.source === "pixiv" ? (
                         item.user?.name && item.userUrl ? (
@@ -538,13 +538,13 @@ export default function App() {
               </Button>
             )}
             {loadingMore && (
-              <div className="flex items-center justify-center gap-3 text-muted-foreground">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <div className="text-muted-foreground flex items-center justify-center gap-3">
+                <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
                 <span className="text-sm">読み込み中...</span>
               </div>
             )}
             {!hasMore && (
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-center text-sm">
                 すべての作品を表示しました
               </p>
             )}
@@ -554,7 +554,10 @@ export default function App() {
         <Dialog
           open={!!selectedItem}
           onOpenChange={(open) => {
-            !open && (setSelectedItem(null), setIsUiHidden(false));
+            if (!open) {
+              setSelectedItem(null);
+              setIsUiHidden(false);
+            }
           }}
         >
           <DialogContent className="h-screen max-w-full border-0 p-0">
@@ -585,17 +588,17 @@ export default function App() {
                     className="h-screen w-full object-contain"
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center bg-muted text-sm text-muted-foreground">
+                  <div className="bg-muted text-muted-foreground flex h-full items-center justify-center text-sm">
                     No image
                   </div>
                 )}
                 {!isUiHidden && selectedItem.source === "pixiv" && selectedItem.aiType === 2 && (
-                  <div className="absolute left-4 top-4 rounded-full bg-purple-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur transition-all duration-300 ease-out">
+                  <div className="absolute top-4 left-4 rounded-full bg-purple-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur transition-all duration-300 ease-out">
                     AI
                   </div>
                 )}
                 <div
-                  className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 transition-all duration-300 ease-out ${
+                  className={`absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 transition-all duration-300 ease-out ${
                     isUiHidden
                       ? "pointer-events-none translate-y-4 opacity-0"
                       : "translate-y-0 opacity-100"
@@ -683,11 +686,11 @@ export default function App() {
                   )}
                 </div>
                 <div
-                  className={`absolute right-4 top-4 transition-all duration-300 ease-out ${
+                  className={`absolute top-4 right-4 transition-all duration-300 ease-out ${
                     isUiHidden ? "pointer-events-none opacity-0" : "opacity-100"
                   }`}
                 >
-                  <DialogClose className="rounded-sm bg-black/50 p-2 text-white opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" />
+                  <DialogClose className="ring-offset-background focus:ring-ring rounded-sm bg-black/50 p-2 text-white opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-none" />
                 </div>
               </div>
             )}

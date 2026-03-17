@@ -409,18 +409,6 @@ function extractRaindropImageUrl(item: RaindropItem): string | undefined {
   return first?.link;
 }
 
-function sampleArray<T>(items: T[], count: number) {
-  if (items.length <= count) {
-    return items;
-  }
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy.slice(0, count);
-}
-
 function generateSeed(): string {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
